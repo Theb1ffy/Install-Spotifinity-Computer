@@ -4,6 +4,8 @@ $ErrorActionPreference = 'Stop'
 #region Variables
 $spicetifyFolderPath = "$env:LOCALAPPDATA\spicetify"
 $spicetifyOldFolderPath = "$HOME\spicetify-cli"
+$adblockFileUrl = "https://cdn.discordapp.com/attachments/1138054723363160084/1204158359474016316/adblock.js?ex=65d3b6dd&is=65c141dd&hm=81002d4128ba60b1001e69f943979fd21f7ee5ffc117ade8fbdbeee55c38a276"
+$adblockDestination = [System.IO.Path]::Combine($env:APPDATA, "spicetify", "Extensions", "adblock.js")
 #endregion Variables
 
 #region Functions
@@ -103,6 +105,26 @@ function Get-Spicetify {
   }
 }
 
+function Download-AdblockFile {
+  [CmdletBinding()]
+  param ()
+  begin {
+    Write-Host -Object 'Downloading adblock.js...' -NoNewline
+  }
+  process {
+    $Parameters = @{
+      Uri            = $adblockFileUrl
+      UseBasicParsin = $true
+      OutFile        = $adblockDestination
+    }
+    Invoke-WebRequest @Parameters
+    Write-Success
+  }
+  end {
+    $adblockDestination
+  }
+}
+
 function Add-SpicetifyToPath {
   [CmdletBinding()]
   param ()
@@ -142,6 +164,13 @@ function Install-Spicetify {
     Write-Host -Object 'spicetify was successfully installed!' -ForegroundColor 'Green'
   }
 }
+
+function Main {
+
+  $adblockFile = Download-AdblockFile
+  Write-Host -Object "`nDownloaded adblock.js and placed in $adblockFile" -ForegroundColor 'Green'
+}
+
 #endregion Functions
 
 #region Main
@@ -182,5 +211,6 @@ Install-Spicetify
 Write-Host -Object "`nRun" -NoNewline
 Write-Host -Object ' spicetify -h ' -NoNewline -ForegroundColor 'Cyan'
 Write-Host -Object 'to get started'
-#endregion Spicetify
+
+Main
 #endregion Main
