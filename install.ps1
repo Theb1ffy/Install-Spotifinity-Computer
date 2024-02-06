@@ -108,22 +108,6 @@ if (-not (Test-Powershell-Version)) {
     Write-Host "PowerShell 7 install guide: https://learn.microsoft.com/powershell/scripting/install/installing-powershell-on-windows"
     exit 1
 }
-else {
-    Write-Success
-}
-
-if (Test-Admin) {
-    Write-Unsuccess
-    Write-Host "The script was ran as Administrator which isn't recommended" -ForegroundColor Red
-    $choice = Read-Host "Do you want to abort the installation process to avoid any issues? (Yes/No)"
-    if ($choice.ToLower() -eq 'yes') {
-        Write-Host "Spotifinity installation aborted" -ForegroundColor Red
-        exit 1
-    }
-}
-else {
-    Write-Success
-}
 
 Move-Old-Spicetify-Folder
 Install-Spicetify
