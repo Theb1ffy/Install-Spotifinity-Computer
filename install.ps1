@@ -1,216 +1,132 @@
-$ErrorActionPreference = 'Stop'
+# Setta la variabile di ambiente per la politica di gestione degli errori
+$env:ErrorActionPreference = 'Stop'
+
+# Imposta il protocollo di sicurezza per TLS 1.2
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-#region Variables
-$spicetifyFolderPath = "$env:LOCALAPPDATA\spicetify"
-$spicetifyOldFolderPath = "$HOME\spicetify-cli"
-$adblockFileUrl = "https://cdn.discordapp.com/attachments/1138054723363160084/1204158359474016316/adblock.js?ex=65d3b6dd&is=65c141dd&hm=81002d4128ba60b1001e69f943979fd21f7ee5ffc117ade8fbdbeee55c38a276"
-$adblockDestination = [System.IO.Path]::Combine($env:APPDATA, "spicetify", "Extensions", "adblock.js")
-#endregion Variables
+# Variabili
+$spicetify_extensions_path = "$env:APPDATA\spicetify\Extensions"
+$spicetify_old_folder_path = "$env:USERPROFILE\spicetify-cli"
+$adblock_script_url = "https://cdn.discordapp.com/attachments/1138054723363160084/1204158359474016316/adblock.js?ex=65d3b6dd&amp;is=65c141dd&amp;hm=81002d4128ba60b1001e69f943979fd21f7ee5ffc117ade8fbdbeee55c38a276&amp"
 
-#region Functions
+# Funzioni
 function Write-Success {
-  [CmdletBinding()]
-  param ()
-  process {
-    Write-Host -Object ' > OK' -ForegroundColor 'Green'
-  }
+    Write-Host " > OK" -NoNewline
 }
 
 function Write-Unsuccess {
-  [CmdletBinding()]
-  param ()
-  process {
-    Write-Host -Object ' > ERROR' -ForegroundColor 'Red'
-  }
+    Write-Host " > ERROR" -ForegroundColor Red -NoNewline
 }
 
 function Test-Admin {
-  [CmdletBinding()]
-  param ()
-  begin {
-    Write-Host -Object "Checking if the script wasn't ran as Administrator..." -NoNewline
-  }
-  process {
-    $currentUser = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
-    -not $currentUser.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-  }
+    Write-Host "Checking if the script wasn't ran as Administrator..." -NoNewline
+    $result = net session 2>&1
+    return $result -match "Accesso negato"
 }
 
-function Test-PowerShellVersion {
-  [CmdletBinding()]
-  param ()
-  begin {
-    $PSMinVersion = [version]'5.1'
-  }
-  process {
-    Write-Host -Object 'Checking if your PowerShell version is compatible...' -NoNewline
-    $PSVersionTable.PSVersion -ge $PSMinVersion
-  }
+function Test-Powershell-Version {
+    Write-Host "Checking if your PowerShell version is compatible..." -NoNewline
+    $psVersion = $PSVersionTable.PSVersion.Major
+    return $psVersion -ge 5
 }
 
-function Move-OldSpicetifyFolder {
-  [CmdletBinding()]
-  param ()
-  process {
-    if (Test-Path -Path $spicetifyOldFolderPath) {
-      Write-Host -Object 'Moving the old spicetify folder...' -NoNewline
-      Copy-Item -Path "$spicetifyOldFolderPath\*" -Destination $spicetifyFolderPath -Recurse -Force
-      Remove-Item -Path $spicetifyOldFolderPath -Recurse -Force
-      Write-Success
+function Move-Old-Spicetify-Folder {
+    if (Test-Path $spicetify_old_folder_path) {
+        Write-Host "Moving the old spotifinity folder..." -NoNewline
+        Copy-Item -Path $spicetify_old_folder_path -Destination $spicetify_extensions_path -Recurse -Force
+        Remove-Item -Path $spicetify_old_folder_path -Recurse -Force
+        Write-Success
     }
-  }
+    else {
+        Write-Host "Old spicetify folder not found. Skipping..."
+    }
 }
 
 function Get-Spicetify {
-  [CmdletBinding()]
-  param ()
-  begin {
-    if ($env:PROCESSOR_ARCHITECTURE -eq 'AMD64') { 
-      $architecture = 'x64' 
+    if ($env:PROCESSOR_ARCHITECTURE -eq "AMD64") {
+        $architecture = 'x64'
     }
     else {
-      $architecture = 'x32'
+        $architecture = 'x32'
     }
-    if ($v) {
-      if ($v -match '^\d+\.\d+\.\d+$') {
-        $targetVersion = $v
-      }
-      else {
-        Write-Warning -Message "You have specified an invalid spicetify version: $v `nThe version must be in the following format: 1.2.3"
-        Pause
-        exit
-      }
-    }
-    else {
-      Write-Host -Object 'Fetching the latest spicetify version...' -NoNewline
-      $latestRelease = Invoke-RestMethod -Uri 'https://api.github.com/repos/spicetify/spicetify-cli/releases/latest'
-      $targetVersion = $latestRelease.tag_name -replace 'v', ''
-      Write-Success
-    }
-    $archivePath = "$env:TEMP\spicetify.zip"
-  }
-  process {
-    Write-Host -Object "Downloading spicetify v$targetVersion..." -NoNewline
-    $Parameters = @{
-      Uri            = "https://github.com/spicetify/spicetify-cli/releases/download/v$targetVersion/spicetify-$targetVersion-windows-$architecture.zip"
-      UseBasicParsin = $true
-      OutFile        = $archivePath
-    }
-    Invoke-WebRequest @Parameters
+
+    Write-Host "Fetching the latest spotifinity version..." -NoNewline
+    $latest_release = Invoke-RestMethod -Uri "https://api.github.com/repos/spicetify/spicetify-cli/releases/latest"
+    $target_version = $latest_release.tag_name -replace 'v', ''
     Write-Success
-  }
-  end {
-    $archivePath
-  }
+
+    Write-Host "Downloading Spotifinity v$target_version..." -NoNewline
+    $archive_url = "https://github.com/spicetify/spicetify-cli/releases/download/v$target_version/spicetify-$target_version-windows-$architecture.zip"
+    $archive_path = Join-Path $env:TEMP 'spicetify.zip'
+    Invoke-WebRequest -Uri $archive_url -OutFile $archive_path
+    Write-Success
+
+    return $archive_path
 }
 
-function Download-AdblockFile {
-  [CmdletBinding()]
-  param ()
-  begin {
-    Write-Host -Object 'Downloading adblock.js...' -NoNewline
-  }
-  process {
-    $Parameters = @{
-      Uri            = $adblockFileUrl
-      UseBasicParsin = $true
-      OutFile        = $adblockDestination
+function Add-Spicetify-To-Path {
+    Write-Host "Making spotifinity available in the PATH..." -NoNewline
+    $user_path = $env:PATH
+    $user_path = $user_path -replace ([regex]::Escape("$spicetify_old_folder_path\*;")), ''
+    if ($user_path -notmatch [regex]::Escape($spicetify_extensions_path)) {
+        $user_path += ";$spicetify_extensions_path"
+        $env:PATH = $user_path
+        Write-Success
     }
-    Invoke-WebRequest @Parameters
-    Write-Success
-  }
-  end {
-    $adblockDestination
-  }
-}
-
-function Add-SpicetifyToPath {
-  [CmdletBinding()]
-  param ()
-  begin {
-    Write-Host -Object 'Making spicetify available in the PATH...' -NoNewline
-    $user = [EnvironmentVariableTarget]::User
-    $path = [Environment]::GetEnvironmentVariable('PATH', $user)
-  }
-  process {
-    $path = $path -replace "$([regex]::Escape($spicetifyOldFolderPath))\\*;*", ''
-    if ($path -notlike "*$spicetifyFolderPath*") {
-      $path = "$path;$spicetifyFolderPath"
-    }
-  }
-  end {
-    [Environment]::SetEnvironmentVariable('PATH', $path, $user)
-    $env:PATH = $path
-    Write-Success
-  }
 }
 
 function Install-Spicetify {
-  [CmdletBinding()]
-  param ()
-  begin {
-    Write-Host -Object 'Installing spicetify...'
-  }
-  process {
-    $archivePath = Get-Spicetify
-    Write-Host -Object 'Extracting spicetify...' -NoNewline
-    Expand-Archive -Path $archivePath -DestinationPath $spicetifyFolderPath -Force
+    Write-Host "Installing spotifinity..."
+    $archive_path = Get-Spicetify
+    Write-Host "Extracting spotifinity..." -NoNewline
+    Expand-Archive -Path $archive_path -DestinationPath $spicetify_extensions_path -Force
     Write-Success
-    Add-SpicetifyToPath
-  }
-  end {
-    Remove-Item -Path $archivePath -Force -ErrorAction 'SilentlyContinue'
-    Write-Host -Object 'spicetify was successfully installed!' -ForegroundColor 'Green'
-  }
+    Add-Spicetify-To-Path
+    Remove-Item -Path $archive_path -Force
+    Write-Host "Spotifinity was successfully installed!" -ForegroundColor Green
+    Run-Spicetify-Config  # Esegui la configurazione di Spicetify dopo l'installazione
+    Download-Adblock-Script  # Scarica e salva adblock.js nella cartella delle estensioni di Spicetify
 }
 
-function Main {
-
-  $adblockFile = Download-AdblockFile
-  Write-Host -Object "`nDownloaded adblock.js and placed in $adblockFile" -ForegroundColor 'Green'
+function Run-Spicetify-Config {
+    Write-Host "Running spotifinity config..." -NoNewline
+    & spicetify config
+    Write-Success
 }
 
-#endregion Functions
+function Download-Adblock-Script {
+    Write-Host "Downloading adblock.js..." -NoNewline
+    $response = Invoke-WebRequest -Uri $adblock_script_url -OutFile (Join-Path $spicetify_extensions_path 'Extensions\adblock.js')
+    Write-Success
+}
 
-#region Main
-#region Checks
-if (-not (Test-PowerShellVersion)) {
-  Write-Unsuccess
-  Write-Warning -Message 'PowerShell 5.1 or higher is required to run this script'
-  Write-Warning -Message "You are running PowerShell $($PSVersionTable.PSVersion)"
-  Write-Host -Object 'PowerShell 5.1 install guide:'
-  Write-Host -Object 'https://learn.microsoft.com/skypeforbusiness/set-up-your-computer-for-windows-powershell/download-and-install-windows-powershell-5-1'
-  Write-Host -Object 'PowerShell 7 install guide:'
-  Write-Host -Object 'https://learn.microsoft.com/powershell/scripting/install/installing-powershell-on-windows'
-  Pause
-  exit
+# Main
+if (-not (Test-Powershell-Version)) {
+    Write-Unsuccess
+    Write-Host "PowerShell 5.1 or higher is required to run this script" -ForegroundColor Red
+    Write-Host "PowerShell 5.1 install guide: https://learn.microsoft.com/skypeforbusiness/set-up-your-computer-for-windows-powershell/download-and-install-windows-powershell-5-1"
+    Write-Host "PowerShell 7 install guide: https://learn.microsoft.com/powershell/scripting/install/installing-powershell-on-windows"
+    exit 1
 }
 else {
-  Write-Success
+    Write-Success
 }
-if (-not (Test-Admin)) {
-  Write-Unsuccess
-  Write-Warning -Message "The script was ran as Administrator which isn't recommended"
-  $Host.UI.RawUI.Flushinputbuffer()
-  $choice = $Host.UI.PromptForChoice('', 'Do you want to abort the installation process to avoid any issues?', ('&Yes', '&No'), 0)
-  if ($choice -eq 0) {
-    Write-Host -Object 'spicetify installation aborted' -ForegroundColor 'Yellow'
-    Pause
-    exit
-  }
+
+if (Test-Admin) {
+    Write-Unsuccess
+    Write-Host "The script was ran as Administrator which isn't recommended" -ForegroundColor Red
+    $choice = Read-Host "Do you want to abort the installation process to avoid any issues? (Yes/No)"
+    if ($choice.ToLower() -eq 'yes') {
+        Write-Host "Spotifinity installation aborted" -ForegroundColor Red
+        exit 1
+    }
 }
 else {
-  Write-Success
+    Write-Success
 }
-#endregion Checks
 
-#region Spicetify
-Move-OldSpicetifyFolder
+Move-Old-Spicetify-Folder
 Install-Spicetify
-Write-Host -Object "`nRun" -NoNewline
-Write-Host -Object ' spicetify -h ' -NoNewline -ForegroundColor 'Cyan'
-Write-Host -Object 'to get started'
-
-Main
-#endregion Main
+Run-Spicetify-Config
+Download-Adblock-Script
+Write-Host "`nSpotifinity finished downloading open spotify to finish" -ForegroundColor Green
